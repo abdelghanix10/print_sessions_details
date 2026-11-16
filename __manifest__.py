@@ -1,14 +1,16 @@
-# -*- coding: utf-8 -*-
 {
     'name': 'POS Print Session Details',
-    'version': '19.0.1.0.0',
-    'category': 'Point of Sale',
-    'summary': 'Show last session info and print buttons on POS login screen',
-    'description': (
-        'Displays last closed session details (Opening Date, Closing Date, '
-        'Ending Balance) on the POS login screen when the register is closed. '
-        'Adds Print and Print Details buttons above the Backend button.'
-    ),
+    'version': '20.0.2.0.0',
+    'category': 'Sales/Point of Sale',
+    'summary': 'Show recent closed sessions info and print reports on POS login screen',
+    'description': """
+POS Print Session Details (Odoo 20)
+===================================
+Displays closed session details (Session Name, Cashier, Opening/Closing Date,
+Total Sales, Orders, Opening/Ending Balance, Cash Difference) on the POS login screen
+when the register is closed, with navigation across recent closed sessions and
+one-click Print Summary & Print Details (supporting both Browser Print and QZ Tray).
+    """,
     'author': 'Custom',
     'depends': ['point_of_sale', 'pos_hide_closing_register'],
     'data': [

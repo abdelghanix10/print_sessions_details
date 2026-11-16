@@ -1,66 +1,106 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <templates id="template" xml:space="preserve">
-
-    <!--
-        print_sessions_details – Login Screen extension
-
-        Injects:
-          ① A session-details card inside .login-body (flex container that
-             already holds the "Open Register" card – so it sits right beside /
-             below it naturally in the same layout).
-          ② "Print" and "Print Details" buttons before the Backend button,
-             styled identically to the Backend button.
-
-        Both blocks are only rendered when showSessionDetailsBlock is true
-        (feature enabled + register is closed + there is a prior session).
-    -->
     <t t-name="print_sessions_details.LoginScreen"
        t-inherit="point_of_sale.LoginScreen"
        t-inherit-mode="extension">
 
-        <!-- ① Session details card – appended inside the .login-body flex row -->
+        <!-- ① Session details card inside .login-body -->
         <xpath expr="//div[hasclass('login-body')]" position="inside">
-            <t t-if="showSessionDetailsBlock">
+            <t t-if="this.showSessionDetailsBlock">
                 <div class="psd-session-card">
-                    <div class="psd-title">
-                        Session Details
+                    <div class="psd-header d-flex justify-content-between align-items-center mb-2">
+                        <button t-if="this.pos.config.psd_allow_session_navigation and this.sessionDetails.history.length &gt; 1"
+                                class="btn btn-sm btn-light border-0 p-1"
+                                title="Older Closed Session"
+                                t-att-disabled="!this.canGoOlderSession"
+                                t-on-click="() => this.olderSession()">
+                            <i class="oi" data-icon="chevron_left"/>
+                        </button>
+                        <div class="psd-title m-0 flex-grow-1 text-center">
+                            Session Details
+                        </div>
+                        <button t-if="this.pos.config.psd_allow_session_navigation and this.sessionDetails.history.length &gt; 1"
+                                class="btn btn-sm btn-light border-0 p-1"
+                                title="Newer Closed Session"
+                                t-att-disabled="!this.canGoNewerSession"
+                                t-on-click="() => this.newerSession()">
+                            <i class="oi" data-icon="chevron_right"/>
+                        </button>
                     </div>
-                    <t t-if="sessionDetails.loading">
+
+                    <t t-if="this.sessionDetails.loading">
                         <div class="psd-loading">
-                            <i class="fa fa-spinner fa-spin me-1"/> Loading…
+                            <span class="spinner-border spinner-border-sm me-1" role="status"/> Loading…
                         </div>
                     </t>
-                    <t t-else="">
+                    <t t-elif="this.currentSessionItem">
+                        <t t-set="item" t-value="this.currentSessionItem"/>
+
+                        <t t-if="this.pos.config.psd_show_cashier">
+                            <div class="psd-row">
+                                <span class="psd-label">Session</span>
+                                <span class="psd-value" t-out="item.name"/>
+                            </div>
+                            <div class="psd-row">
+                                <span class="psd-label">Cashier</span>
+                                <span class="psd-value" t-out="item.cashier"/>
+                            </div>
+                        </t>
+
                         <div class="psd-row">
                             <span class="psd-label">Opening Date</span>
-                            <span class="psd-value" t-esc="sessionDetails.opening_date"/>
+                            <span class="psd-value" t-out="item.opening_date"/>
                         </div>
                         <div class="psd-row">
                             <span class="psd-label">Closing Date</span>
-                            <span class="psd-value" t-esc="sessionDetails.closing_date"/>
+                            <span class="psd-value" t-out="item.closing_date"/>
                         </div>
+
+                        <t t-if="this.pos.config.psd_show_total_sales">
+                            <div class="psd-row">
+                                <span class="psd-label">Orders</span>
+                                <span class="psd-value" t-out="item.order_count"/>
+                            </div>
+                            <div class="psd-row">
+                                <span class="psd-label">Total Sales</span>
+                                <span class="psd-value text-primary" t-out="item.total_sales"/>
+                            </div>
+                        </t>
+
+                        <t t-if="this.pos.config.psd_show_cash_diff">
+                            <div class="psd-row">
+                                <span class="psd-label">Opening Cash</span>
+                                <span class="psd-value" t-out="item.opening_balance"/>
+                            </div>
+                            <div class="psd-row">
+                                <span class="psd-label">Cash Diff</span>
+                                <span t-att-class="'psd-value ' + (item.has_negative_diff ? 'text-danger' : 'text-success')"
+                                      t-out="item.cash_difference"/>
+                            </div>
+                        </t>
+
                         <div class="psd-row">
                             <span class="psd-label">Ending Balance</span>
-                            <span class="psd-value psd-balance" t-esc="sessionDetails.ending_balance"/>
+                            <span class="psd-value psd-balance" t-out="item.ending_balance"/>
                         </div>
                     </t>
                 </div>
             </t>
         </xpath>
 
-        <!-- ② Print buttons – immediately before the Backend button wrapper -->
+        <!-- ② Print buttons immediately before the Backend button wrapper -->
         <xpath expr="//div[hasclass('w-100') and hasclass('d-flex') and hasclass('justify-content-center')]" position="before">
-            <t t-if="showSessionDetailsBlock">
+            <t t-if="this.showSessionDetailsBlock">
                 <div class="psd-print-actions w-100 d-flex justify-content-center gap-2 mb-2">
                     <button class="psd-btn-print btn btn-dark btn-lg"
                             t-on-click="() => this.printSessionSummary()">
-                        <i class="fa fa-print"/>
-                        Print
+                        <i class="oi" data-icon="print"/>
+                        <span>Print</span>
                     </button>
                     <button class="psd-btn-print-details btn btn-dark btn-lg"
                             t-on-click="() => this.printSessionDetails()">
-                        <i class="fa fa-file-text-o"/>
-                        Print Details
+                        <i class="oi" data-icon="description"/>
+                        <span>Print Details</span>
                     </button>
                 </div>
             </t>

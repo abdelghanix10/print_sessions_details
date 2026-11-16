@@ -1,57 +1,47 @@
-# POS Print Session Details
+# POS Print Session Details (Odoo 20)
 
-## Overview
+**POS Print Session Details** (`print_sessions_details`) displays key information and one-click print buttons for closed POS sessions directly on the **Odoo 20** POS Login Screen when the register is closed.
 
-**POS Print Session Details** is an Odoo 19 module designed to provide immediate access to last session information and reporting directly from the POS login screen. It eliminates the need to enter the backend to check the status or print reports for the previous session, streamlining the workflow for cashiers and managers during shift changes or opening procedures.
+---
 
 ## Features
 
-- **Session Summary Card:** Displays critical data from the last closed session:
-  - **Opening Date & Time**
-  - **Closing Date & Time**
-  - **Ending Balance** (with currency symbol)
-- **Direct Printing:**
-  - **Print Summary:** Generates a concise, receipt-style summary of the session details.
-  - **Print Details:** Generates the full "Sale Details" report (X-Report/Z-Report style) for the last session.
-- **Smart Logic:** Automatically identifies the most recent closed session with a non-zero balance to ensure meaningful data is displayed.
-- **Configurable:** Enable or disable the session details block per POS configuration.
-- **Responsive Design:** Integrates seamlessly into the Odoo POS login screen layout.
+- **Closed Session Summary Card on Login Screen**:
+  - **Session ID & Cashier Name** *(configurable)*
+  - **Opening Date & Time** (converted to the user's local timezone)
+  - **Closing Date & Time** (converted to the user's local timezone)
+  - **Orders Count & Total Sales** *(configurable)*
+  - **Opening Cash & Cash Difference** *(configurable)*
+  - **Ending Balance**
+- **Recent Sessions Navigation (`‹` / `›`)**:
+  - Browse through the last **10 closed sessions** directly from the POS Login Screen card and print reports for any of them.
+- **Direct Printing (Browser Preview & QZ Tray)**:
+  - **Print**: Prints a concise receipt-style summary of the selected session.
+  - **Print Details**: Prints the full **Custom Sales Details** report from `pos_hide_closing_register`.
+  - Automatically uses **QZ Tray** when configured on the POS terminal, or falls back to Browser Print Preview.
 
-## Technical Details
-
-- **Module Name:** `print_sessions_details`
-- **Odoo Version:** 19.0
-- **Dependencies:** `point_of_sale`, `pos_hide_closing_register`
-- **Key Files:**
-  - `models/pos_session.py`: Logic for fetching last session info and rendering reports.
-  - `static/src/js/login_screen_patch.js`: Frontend logic for fetching and displaying data.
-  - `static/src/xml/login_screen_patch.xml`: Template extension for the login screen.
-
-## Installation
-
-1. Copy the `print_sessions_details` module into your Odoo addons directory.
-2. Restart your Odoo server.
-3. Activate Developer Mode.
-4. Go to **Apps** -> **Update Apps List**.
-5. Search for "POS Print Session Details" and click **Activate**.
+---
 
 ## Configuration
 
-To enable the session details on the login screen:
-1. Navigate to **Point of Sale** -> **Configuration** -> **Settings**.
-2. Select your POS configuration.
-3. Look for the **Session Details** section (or search for "Enable Session Details").
-4. Check the box **Enable Session Details on Login Screen**.
-5. Save the settings.
+Go to **Point of Sale → Configuration → Settings** (or edit an individual POS terminal under **Point of Sale → Configuration → Point of Sale**):
+1. Enable **Show Session Details on Login**.
+2. Toggle optional fields:
+   - **Allow Browsing Recent Closed Sessions**
+   - **Show Session Name & Cashier**
+   - **Show Total Sales & Orders Count**
+   - **Show Opening Cash & Difference**
+3. Click **Save**.
 
-## Usage
+---
 
-1. Open a Point of Sale session that is currently **Closed**.
-2. On the login screen, you will see a "Session Details" card next to the "Open Register" button.
-3. Use the **Print** button to print a quick summary.
-4. Use the **Print Details** button to view and print the comprehensive sale details report.
-5. Note: These elements are automatically hidden if a session is already open or if no prior closed session data is available.
+## Technical Details
 
-## License
-
-This module is licensed under the LGPL-3.
+- **Module Name**: `print_sessions_details`
+- **Odoo Version**: `20.0.2.0.0`
+- **Dependencies**: `point_of_sale`, `pos_hide_closing_register`
+- **Odoo 20 Architecture**:
+  - **OWL 3**: Uses `proxy()` reactive state, mandatory `this.` template bindings, and `t-out` directives.
+  - **Material Symbols**: Uses Odoo 20 Material Symbols ligature icons (`print`, `description`, `chevron_left`, `chevron_right`).
+  - **Timezone Handling**: Uses Python's `zoneinfo.ZoneInfo` (`self.env.tz`).
+- **License**: LGPL-3

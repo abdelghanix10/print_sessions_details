@@ -1,109 +1,113 @@
 /** @odoo-module */
 
-/**
- * print_sessions_details – Login Screen patch
- *
- * - Fetches the last closed session for THIS register (config_id) on mount.
- * - Shows a summary card under the "Open Register" button.
- * - Adds "Print" and "Print Details" buttons above the "Backend" button.
- * - All UI elements are hidden when:
- *     • the feature is disabled in POS config (enable_session_details = false)
- *     • the button label is "Unlock Register" (session already open)
- *     • there is no prior closed session
- */
-
 import { patch } from "@web/core/utils/patch";
 import { LoginScreen } from "@point_of_sale/app/screens/login_screen/login_screen";
-import { useState, onMounted } from "@odoo/owl";
+import { proxy, onMounted } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 
 patch(LoginScreen.prototype, {
-    setup() {
-        super.setup(...arguments);
-        this.orm = useService("orm");
+  setup() {
+    super.setup(...arguments);
+    this.orm = useService("orm");
 
-        this.sessionDetails = useState({
-            show: false,          // whether to render the block at all
-            loading: true,
-            opening_date: "",
-            closing_date: "",
-            ending_balance: "",
-            session_id: null,
-        });
+    // OWL 3 in Odoo 20 uses proxy() instead of useState()
+    this.sessionDetails = proxy({
+      show: false,
+      loading: true,
+      currentIndex: 0,
+      history: [],
+    });
 
-        onMounted(async () => {
-            await this._loadLastSessionDetails();
-        });
-    },
+    onMounted(async () => {
+      await this._loadLastSessionDetails();
+    });
+  },
 
-    /**
-     * Returns true only when the register button says "Open Register"
-     * (i.e. there is no active session for this config) AND the feature
-     * is enabled in config.
-     */
-    get showSessionDetailsBlock() {
-        if (!this.pos.config.enable_session_details) return false;
-        // pos.session is null / undefined when register is truly closed
-        const session = this.pos.session;
-        if (session && session.state === "opened") return false;
-        return this.sessionDetails.show;
-    },
+  get showSessionDetailsBlock() {
+    if (!this.pos?.config?.enable_session_details) return false;
+    const session = this.pos.session;
+    if (session && session.state === "opened") return false;
+    return this.sessionDetails.show;
+  },
 
-    async _loadLastSessionDetails() {
-        const configId = this.pos.config.id;
-        try {
-            const info = await this.orm.call(
-                "pos.session",
-                "get_last_closed_session_info",
-                [configId],
-            );
-            if (info) {
-                this.sessionDetails.session_id = info.session_id;
-                this.sessionDetails.opening_date = info.opening_date;
-                this.sessionDetails.closing_date = info.closing_date;
-                this.sessionDetails.ending_balance = info.ending_balance;
-                this.sessionDetails.show = true;
-            } else {
-                this.sessionDetails.show = false;
-            }
-        } catch (_e) {
-            this.sessionDetails.show = false;
-        } finally {
-            this.sessionDetails.loading = false;
-        }
-    },
+  get currentSessionItem() {
+    return (
+      this.sessionDetails.history[this.sessionDetails.currentIndex] || null
+    );
+  },
 
-    /** Print only the summary card (Opening, Closing, Ending Balance) */
-    async printSessionSummary() {
-        const { opening_date, closing_date, ending_balance } = this.sessionDetails;
-        const htmlContent = `
+  get canGoOlderSession() {
+    return (
+      this.pos?.config?.psd_allow_session_navigation &&
+      this.sessionDetails.currentIndex < this.sessionDetails.history.length - 1
+    );
+  },
+
+  get canGoNewerSession() {
+    return (
+      this.pos?.config?.psd_allow_session_navigation &&
+      this.sessionDetails.currentIndex > 0
+    );
+  },
+
+  olderSession() {
+    if (this.canGoOlderSession) {
+      this.sessionDetails.currentIndex++;
+    }
+  },
+
+  newerSession() {
+    if (this.canGoNewerSession) {
+      this.sessionDetails.currentIndex--;
+    }
+  },
+
+  async _loadLastSessionDetails() {
+    const configId = this.pos.config.id;
+    try {
+      const info = await this.orm.call(
+        "pos.session",
+        "get_last_closed_session_info",
+        [configId],
+      );
+      if (info && info.history && info.history.length > 0) {
+        this.sessionDetails.history = info.history;
+        this.sessionDetails.currentIndex = 0;
+        this.sessionDetails.show = true;
+      } else {
+        this.sessionDetails.show = false;
+      }
+    } catch {
+      this.sessionDetails.show = false;
+    } finally {
+      this.sessionDetails.loading = false;
+    }
+  },
+
+  async _dispatchPrintHtml(title, bodyHtml, width = 600, height = 500) {
+    const printMethod = this.pos?.config?.print_method || "chrome_preview";
+    const fullHtml = `
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Session Summary</title>
+                <title>${title}</title>
                 <style>
                     body {
-                        font-family: monospace;
+                        font-family: "Courier New", Courier, monospace;
                         font-size: 14px;
                         font-weight: bold;
-                        margin: 20px;
+                        margin: 15px;
                     }
                     table { width: 100%; border-collapse: collapse; }
                     td { padding: 4px 0; }
                     td:last-child { text-align: right; }
                     hr { border: none; border-top: 1px dashed #000; margin: 8px 0; }
                     .title { text-align: center; font-size: 16px; margin-bottom: 10px; }
+                    @media print { body { margin: 0; } }
                 </style>
             </head>
             <body>
-                <div class="title">SESSION SUMMARY</div>
-                <hr/>
-                <table>
-                    <tr><td>Opening Date</td><td>${opening_date}</td></tr>
-                    <tr><td>Closing Date</td><td>${closing_date}</td></tr>
-                    <tr><td>Ending Balance</td><td>${ending_balance}</td></tr>
-                </table>
-                <hr/>
+                ${bodyHtml}
                 <script>
                     window.onload = function () {
                         window.print();
@@ -114,54 +118,86 @@ patch(LoginScreen.prototype, {
             </html>
         `;
 
-        const printWin = window.open("", "_blank", "width=600,height=400");
-        if (printWin) {
-            printWin.document.write(htmlContent);
-            printWin.document.close();
-        }
-    },
-
-    /** Print the full sale-details report for the last closed session */
-    async printSessionDetails() {
-        const sessionId = this.sessionDetails.session_id;
-        if (!sessionId) return;
-
+    if (printMethod === "qz_tray") {
+      const qzService = this.env.services.qz_tray;
+      if (qzService) {
         try {
-            const reportHtml = await this.orm.call(
-                "pos.session",
-                "get_session_details_report_html",
-                [sessionId],
-            );
-
-            const htmlContent = `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Session Details</title>
-                    <style>
-                        body { font-family: monospace; font-size: 14px; font-weight: bold; margin: 0; }
-                        @media print { body { margin: 0; } }
-                    </style>
-                </head>
-                <body>
-                    ${reportHtml}
-                    <script>
-                        window.onload = function () {
-                            window.print();
-                            window.onafterprint = function () { window.close(); };
-                        };
-                    </script>
-                </body>
-                </html>
-            `;
-
-            const printWin = window.open("", "_blank", "width=800,height=600");
-            if (printWin) {
-                printWin.document.write(htmlContent);
-                printWin.document.close();
-            }
-        } catch (_e) {
-            console.error("print_sessions_details: failed to fetch report HTML", _e);
+          await qzService.connect();
+          const qzLib = qzService.getQZ();
+          const printerName = await qzLib.printers.getDefault();
+          await qzService.print(
+            printerName,
+            `<html><body>${bodyHtml}</body></html>`,
+            "pixel",
+            { scaleContent: false },
+          );
+          return;
+        } catch (err) {
+          console.warn(
+            "QZ Tray print failed, falling back to browser preview:",
+            err,
+          );
         }
-    },
+      }
+    }
+
+    const printWin = window.open(
+      "",
+      "_blank",
+      `width=${width},height=${height}`,
+    );
+    if (printWin) {
+      printWin.document.write(fullHtml);
+      printWin.document.close();
+    }
+  },
+
+  /** Print the summary card for the currently selected closed session */
+  async printSessionSummary() {
+    const item = this.currentSessionItem;
+    if (!item) return;
+
+    const cfg = this.pos.config;
+    let rowsHtml = "";
+    if (cfg.psd_show_cashier) {
+      rowsHtml += `<tr><td>Session</td><td>${item.name}</td></tr>`;
+      rowsHtml += `<tr><td>Cashier</td><td>${item.cashier}</td></tr>`;
+    }
+    rowsHtml += `<tr><td>Opening Date</td><td>${item.opening_date}</td></tr>`;
+    rowsHtml += `<tr><td>Closing Date</td><td>${item.closing_date}</td></tr>`;
+    if (cfg.psd_show_total_sales) {
+      rowsHtml += `<tr><td>Orders</td><td>${item.order_count}</td></tr>`;
+      rowsHtml += `<tr><td>Total Sales</td><td>${item.total_sales}</td></tr>`;
+    }
+    if (cfg.psd_show_cash_diff) {
+      rowsHtml += `<tr><td>Opening Cash</td><td>${item.opening_balance}</td></tr>`;
+      rowsHtml += `<tr><td>Cash Diff</td><td>${item.cash_difference}</td></tr>`;
+    }
+    rowsHtml += `<tr><td>Ending Balance</td><td>${item.ending_balance}</td></tr>`;
+
+    const bodyHtml = `
+            <div class="title">SESSION SUMMARY</div>
+            <hr/>
+            <table>${rowsHtml}</table>
+            <hr/>
+        `;
+    await this._dispatchPrintHtml("Session Summary", bodyHtml, 600, 450);
+  },
+
+  /** Print the full sale-details report for the currently selected closed session */
+  async printSessionDetails() {
+    const item = this.currentSessionItem;
+    if (!item || !item.session_id) return;
+
+    try {
+      const reportHtml = await this.orm.call(
+        "pos.session",
+        "get_session_details_report_html",
+        [item.session_id],
+      );
+      await this._dispatchPrintHtml("Session Details", reportHtml, 800, 600);
+    } catch (err) {
+      console.error("print_sessions_details: failed to fetch report HTML", err);
+    }
+  },
 });
