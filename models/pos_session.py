@@ -47,11 +47,30 @@ class PosSession(models.Model):
         def serialize_session(s):
             valid_orders = s.order_ids.filtered(lambda o: o.state not in ('draft', 'cancel'))
             total_sales = sum(valid_orders.mapped('amount_total'))
-            opening_bal = getattr(s, 'cash_register_balance_start', 0.0) or 0.0
-            ending_bal = getattr(s, 'cash_register_balance_end_real', 0.0) or 0.0
-            if ending_bal == 0.0:
-                ending_bal = getattr(s, 'cash_register_balance_end', 0.0) or 0.0
-            cash_diff = getattr(s, 'cash_register_difference', 0.0) or 0.0
+            opening_bal = 0.0
+            ending_bal = 0.0
+            cash_diff = 0.0
+            try:
+                control_data = s.get_closing_control_data()
+                if isinstance(control_data, dict):
+                    cash_details = control_data.get('default_cash_details') or {}
+                    opening_bal = float(cash_details.get('opening', 0.0) or 0.0)
+                    ending_bal = float(cash_details.get('amount', 0.0) or 0.0)
+            except Exception:
+                pass
+
+            try:
+                if hasattr(s, '_get_session_cash_balances'):
+                    opening_bal, expected_bal, counted_bal, cash_diff = s._get_session_cash_balances()
+                    ending_bal = counted_bal
+                elif hasattr(s, 'bank_statement_id') and s.bank_statement_id:
+                    ending_bal = float(
+                        getattr(s.bank_statement_id, 'balance_end_real', 0.0)
+                        or getattr(s.bank_statement_id, 'balance_end', ending_bal)
+                        or 0.0
+                    )
+            except Exception:
+                pass
 
             return {
                 'session_id': s.id,

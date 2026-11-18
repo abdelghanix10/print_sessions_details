@@ -2,7 +2,7 @@
 
 import { patch } from "@web/core/utils/patch";
 import { LoginScreen } from "@point_of_sale/app/screens/login_screen/login_screen";
-import { proxy, onMounted } from "@odoo/owl";
+import { proxy, onMounted, onWillStart } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 
 patch(LoginScreen.prototype, {
@@ -18,6 +18,10 @@ patch(LoginScreen.prototype, {
       history: [],
     });
 
+    onWillStart(async () => {
+      await this._loadLastSessionDetails();
+    });
+
     onMounted(async () => {
       await this._loadLastSessionDetails();
     });
@@ -25,8 +29,6 @@ patch(LoginScreen.prototype, {
 
   get showSessionDetailsBlock() {
     if (!this.pos?.config?.enable_session_details) return false;
-    const session = this.pos.session;
-    if (session && session.state === "opened") return false;
     return this.sessionDetails.show;
   },
 
@@ -63,7 +65,12 @@ patch(LoginScreen.prototype, {
   },
 
   async _loadLastSessionDetails() {
-    const configId = this.pos.config.id;
+    const configId = this.pos?.config?.id || odoo.pos_config_id;
+    if (!configId) {
+      this.sessionDetails.show = false;
+      this.sessionDetails.loading = false;
+      return;
+    }
     try {
       const info = await this.orm.call(
         "pos.session",
