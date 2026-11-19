@@ -41,7 +41,7 @@ Go to **Point of Sale → Configuration → Settings** (or edit an individual PO
 - **Odoo Version**: `20.0.2.0.0`
 - **Dependencies**: `point_of_sale`, `pos_hide_closing_register`
 - **Odoo 20 Architecture**:
-  - **OWL 3**: Uses `proxy()` reactive state, mandatory `this.` template bindings, and `t-out` directives.
+  - **OWL 3**: Uses `proxy()` reactive state, `this.` template bindings, and `t-out` directives.
   - **Material Symbols**: Uses Odoo 20 Material Symbols ligature icons (`print`, `description`, `chevron_left`, `chevron_right`).
   - **Timezone Handling**: Uses Python's `zoneinfo.ZoneInfo` (`self.env.tz`).
 - **License**: LGPL-3

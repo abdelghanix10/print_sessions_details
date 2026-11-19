@@ -6,6 +6,11 @@
 /* ---------- Session details card ----------
    Mirrors the ".open-register-btn" card: white, rounded-4, light shadow
    ------------------------------------------------------------ */
+.login-body {
+    align-items: center !important;
+    gap: 1.5rem !important;
+}
+
 .psd-session-card {
     background: #fff;
     border-radius: 1rem;           /* same as rounded-4 */
@@ -14,6 +19,29 @@
     max-width: 360px;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
     animation: psd-fade-in 0.35s ease;
+}
+
+.psd-header {
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #f1f3f5;
+}
+
+.psd-nav-btn {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #495057;
+}
+
+.psd-nav-btn:hover:not(:disabled) {
+    background-color: #e9ecef;
+}
+
+.psd-nav-btn:disabled {
+    opacity: 0.3;
 }
 
 .psd-row {
@@ -64,17 +92,13 @@
     padding: 0.4rem 0;
 }
 
-/* ---------- Print action buttons ----------
-   Same dark pill as the "Backend" button: btn btn-dark btn-lg
-   ------------------------------------------------------------ */
-.psd-print-actions {
-    padding: 0 0.5rem;
-    margin-bottom: 0.5rem;
+.psd-card-actions {
+    border-top: 1px solid #f0f0f0;
 }
 
+/* ---------- Print action buttons ---------- */
 .psd-btn-print,
 .psd-btn-print-details {
-    /* Identical to Odoo's .select-logout (Backend) button */
     background-color: #212529 !important;
     border-color: #212529 !important;
     color: #fff !important;
@@ -86,6 +110,7 @@
     white-space: nowrap;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.45rem;
 }
 

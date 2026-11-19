@@ -10,12 +10,18 @@ patch(LoginScreen.prototype, {
     super.setup(...arguments);
     this.orm = useService("orm");
 
-    // OWL 3 in Odoo 20 uses proxy() instead of useState()
     this.sessionDetails = proxy({
       show: false,
       loading: true,
       currentIndex: 0,
       history: [],
+      settings: {
+        enable_session_details: true,
+        psd_show_cashier: true,
+        psd_show_total_sales: true,
+        psd_show_cash_diff: false,
+        psd_allow_session_navigation: true,
+      },
     });
 
     onWillStart(async () => {
@@ -23,13 +29,37 @@ patch(LoginScreen.prototype, {
     });
 
     onMounted(async () => {
-      await this._loadLastSessionDetails();
+      if (!this.sessionDetails.history.length) {
+        await this._loadLastSessionDetails();
+      }
     });
   },
 
+  _getPosConfigId() {
+    if (this.pos?.config?.id) {
+      return this.pos.config.id;
+    }
+    if (window.odoo?.pos_config_id) {
+      return window.odoo.pos_config_id;
+    }
+    const match = window.location.pathname.match(/\/pos\/ui\/(\d+)/);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("config_id")) {
+      return parseInt(urlParams.get("config_id"), 10);
+    }
+    return null;
+  },
+
+  get psdSettings() {
+    return this.sessionDetails.settings;
+  },
+
   get showSessionDetailsBlock() {
-    if (!this.pos?.config?.enable_session_details) return false;
-    return this.sessionDetails.show;
+    if (!this.psdSettings.enable_session_details) return false;
+    return Boolean(this.sessionDetails?.show);
   },
 
   get currentSessionItem() {
@@ -40,14 +70,14 @@ patch(LoginScreen.prototype, {
 
   get canGoOlderSession() {
     return (
-      this.pos?.config?.psd_allow_session_navigation &&
+      this.psdSettings.psd_allow_session_navigation &&
       this.sessionDetails.currentIndex < this.sessionDetails.history.length - 1
     );
   },
 
   get canGoNewerSession() {
     return (
-      this.pos?.config?.psd_allow_session_navigation &&
+      this.psdSettings.psd_allow_session_navigation &&
       this.sessionDetails.currentIndex > 0
     );
   },
@@ -65,7 +95,7 @@ patch(LoginScreen.prototype, {
   },
 
   async _loadLastSessionDetails() {
-    const configId = this.pos?.config?.id || odoo.pos_config_id;
+    const configId = this._getPosConfigId();
     if (!configId) {
       this.sessionDetails.show = false;
       this.sessionDetails.loading = false;
@@ -77,14 +107,18 @@ patch(LoginScreen.prototype, {
         "get_last_closed_session_info",
         [configId],
       );
+      if (info && info.settings) {
+        Object.assign(this.sessionDetails.settings, info.settings);
+      }
       if (info && info.history && info.history.length > 0) {
         this.sessionDetails.history = info.history;
         this.sessionDetails.currentIndex = 0;
-        this.sessionDetails.show = true;
+        this.sessionDetails.show = info.enabled !== false;
       } else {
         this.sessionDetails.show = false;
       }
-    } catch {
+    } catch (err) {
+      console.error("print_sessions_details: RPC error", err);
       this.sessionDetails.show = false;
     } finally {
       this.sessionDetails.loading = false;
@@ -164,7 +198,7 @@ patch(LoginScreen.prototype, {
     const item = this.currentSessionItem;
     if (!item) return;
 
-    const cfg = this.pos.config;
+    const cfg = this.psdSettings;
     let rowsHtml = "";
     if (cfg.psd_show_cashier) {
       rowsHtml += `<tr><td>Session</td><td>${item.name}</td></tr>`;

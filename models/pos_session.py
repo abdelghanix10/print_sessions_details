@@ -12,15 +12,25 @@ class PosSession(models.Model):
         """
         Return info about recent closed sessions for the given POS config.
         Prioritizes sessions with non-zero activity while also returning
-        a `sessions_list` (up to 10 recent sessions) for prev/next browsing.
+        a `history` list (up to 10 recent sessions) for prev/next browsing.
         """
-        config = self.env['pos.config'].sudo().browse(config_id)
+        config = self.env['pos.config'].sudo().browse(int(config_id))
         if not config.exists():
             return False
 
+        config_settings = {
+            'enable_session_details': bool(config.enable_session_details),
+            'psd_show_cashier': bool(config.psd_show_cashier),
+            'psd_show_total_sales': bool(config.psd_show_total_sales),
+            'psd_show_cash_diff': bool(config.psd_show_cash_diff),
+            'psd_allow_session_navigation': bool(config.psd_allow_session_navigation),
+        }
+        if not config.enable_session_details:
+            return {'enabled': False, 'settings': config_settings, 'history': []}
+
         closed_sessions = self.sudo().search(
             [
-                ('config_id', '=', config_id),
+                ('config_id', '=', config.id),
                 ('state', '=', 'closed'),
             ],
             order='stop_at desc, id desc',
@@ -28,11 +38,13 @@ class PosSession(models.Model):
         )
 
         if not closed_sessions:
-            return False
+            return {'enabled': True, 'settings': config_settings, 'history': []}
 
-        user_tz = self.env.tz or ZoneInfo(self.env.user.tz or 'UTC')
-        if isinstance(user_tz, str):
-            user_tz = ZoneInfo(user_tz)
+        user_tz_name = self.env.context.get('tz') or self.env.user.tz or 'UTC'
+        try:
+            user_tz = ZoneInfo(user_tz_name)
+        except Exception:
+            user_tz = ZoneInfo('UTC')
         utc_tz = ZoneInfo('UTC')
 
         def fmt_dt(dt):
@@ -92,7 +104,9 @@ class PosSession(models.Model):
         non_zero = [item for item in serialized_all if item['_raw_activity'] > 0]
         session_history = (non_zero or serialized_all)[:10]
 
-        primary = session_history[0]
+        primary = dict(session_history[0])
+        primary['enabled'] = True
+        primary['settings'] = config_settings
         primary['history'] = session_history
         return primary
 
